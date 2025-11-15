@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>First Year H Batch - Attendance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+    header small { opacity: 0.8; }
+    main {
+      padding: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .btn {
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 2px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-warning { background: #f59e0b; color: #111827; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid #d1d5db;
+      color: #111827;
+    }
+    .btn-small { padding: 4px 8px; font-size: 12px; }
+
+    #nav {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    #nav button {
+      flex: 1;
+      min-width: 90px;
+    }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    input, textarea {
+      width: 100%;
+      padding: 6px 8px;
+      margin: 4px 0 10px 0;
+      box-sizing: border-box;
+      border-radius: 6px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+    }
+
+    .muted { color: #6b7280; font-size: 13px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    .badge-attended { background:#bbf7d0; color:#166534; }
+    .badge-exchanged { background:#fee2e2; color:#7f1d1d; }
+    .badge-not { background:#e5e7eb; color:#111827; }
+
+    .chat-message {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 6px 0;
+    }
+    .chat-meta {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    #auth-section {
+      max-width: 420px;
+      margin: 40px auto;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>First Year H Batch</h1>
+    <small>Self Attendance</small>
+  </div>
+  <div id="header-user" style="font-size:12px;"></div>
+</header>
+
+<main>
+  <!-- AUTH SECTION -->
+  <section id="auth-section">
+    <div class="card">
+      <h2>Login</h2>
+      <label>Email</label>
+      <input id="login-email" type="email" />
+      <label>Password</label>
+      <input id="login-password" type="password" />
+      <button class="btn btn-primary" id="login-btn">Login</button>
+    </div>
+
+    <div class="card">
+      <h2>Sign Up (Student)</h2>
+      <p class="muted">After sign up, teacher must approve you before you can mark attendance.</p>
+      <label>Full Name</label>
+      <input id="signup-name" type="text" />
+      <label>Email</label>
+      <input id="signup-email" type="email" />
+      <label>Password</label>
+      <input id="signup-password" type="password" />
+      <label>Phone (optional)</label>
+      <input id="signup-phone" type="tel" />
+      <label>Batch ID</label>
+      <input id="signup-batch" type="text" value="FE_H" />
+      <button class="btn btn-outline" id="signup-btn">Create Account</button>
+    </div>
+
+    <div class="card muted">
+      <b>Teacher:</b> create your own account first, then in Firestore set your user
+      fields: <code>role = "admin"</code>, <code>approved = true</code>.
+    </div>
+  </section>
+
+  <!-- APP SECTION -->
+  <section id="app-section" style="display:none;">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div id="welcome-text"></div>
+          <div id="approval-warning" class="muted"></div>
+        </div>
+        <button id="logout-btn" class="btn btn-outline btn-small">Logout</button>
+      </div>
+    </div>
+
+    <div id="nav" class="card" style="margin-top:8px;">
+      <button class="btn btn-outline btn-small" data-screen="dashboard">Dashboard</button>
+      <button class="btn btn-outline btn-small" data-screen="attendance">Attendance</button>
+      <button class="btn btn-outline btn-small" data-screen="timetable">Timetable</button>
+      <button class="btn btn-outline btn-small" data-screen="chat">Chat</button>
+      <button class="btn btn-outline btn-small" data-screen="admin" id="admin-tab" style="display:none;">Admin</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="screen-dashboard" class="screen active">
+      <div class="card">
+        <h2>Today&apos;s Lectures</h2>
+        <div id="today-lectures"></div>
+        <p class="muted" id="no-lectures" style="display:none;">No lectures found for today.</p>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE -->
+    <div id="screen-attendance" class="screen">
+      <div class="card">
+        <h2>Your Attendance</h2>
+        <div id="attendance-list"></div>
+      </div>
+    </div>
+
+    <!-- TIMETABLE -->
+    <div id="screen-timetable" class="screen">
+      <div class="card">
+        <h2>Weekly Timetable</h2>
+        <div id="timetable-list"></div>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div id="screen-chat" class="screen">
+      <div class="card">
+        <h2>Chat &amp; Announcements</h2>
+        <div id="chat-messages" style="max-height:320px;overflow-y:auto;margin-bottom:10px;"></div>
+        <textarea id="chat-input" rows="2" placeholder="Type message..."></textarea>
+        <button class="btn btn-primary btn-small" id="send-chat-btn">Send</button>
+        <button class="btn btn-outline btn-small" id="refresh-chat-btn">Refresh</button>
+      </div>
+    </div>
+
+    <!-- ADMIN -->
+    <div id="screen-admin" class="screen">
+      <div class="card">
+        <h2>Admin Panel</h2>
+        <p class="muted">Approve new students &amp; seed FE_H timetable.</p>
+        <h3>Pending Students</h3>
+        <div id="pending-users"></div>
+        <hr />
+        <h3>Tools</h3>
+        <button class="btn btn-warning btn-small" id="seed-timetable-btn">Seed FE_H Timetable (run once)</button>
+        <p class="muted">Click only once after Firebase is connected. It will create documents in the
+          <code>timetable</code> collection.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Firebase + App Logic -->
+<script type="module">
+  /*************** 1. FIREBASE SETUP ***************/
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth,
+    onAuthStateChanged,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  import {
+    getFirestore,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    setDoc,
+    addDoc,
+    updateDoc,
+    query,
+    where,
+    orderBy,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  
+ const firebaseConfig = {
+  apiKey: "AIzaSyBeqihab6LZJ889tn_pIZklA4LRUHMnglU",
+  authDomain: "first-year-h-batch-6f50e.firebaseapp.com",
+  projectId: "first-year-h-batch-6f50e",
+  storageBucket: "first-year-h-batch-6f50e.firebasestorage.app",
+  messagingSenderId: "249051538238",
+  appId: "1:249051538238:web:11b0e127c98e1126a0c26f"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  /*************** 2. GLOBAL STATE & UI ***************/
+  let currentUserAuth = null;
+  let currentUserDoc = null;
+
+  const authSection = document.getElementById("auth-section");
+  const appSection   = document.getElementById("app-section");
+  const headerUser   = document.getElementById("header-user");
+  const welcomeText  = document.getElementById("welcome-text");
+  const approvalWarning = document.getElementById("approval-warning");
+  const adminTab     = document.getElementById("admin-tab");
+
+  const screens = {
+    dashboard:  document.getElementById("screen-dashboard"),
+    attendance: document.getElementById("screen-attendance"),
+    timetable:  document.getElementById("screen-timetable"),
+    chat:       document.getElementById("screen-chat"),
+    admin:      document.getElementById("screen-admin")
+  };
+
+  function showScreen(name) {
+    Object.keys(screens).forEach(k => screens[k].classList.remove("active"));
+    if (screens[name]) screens[name].classList.add("active");
+  }
+
+  function getTodayDayCode() {
+    const names = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+    return names[new Date().getDay()];
+  }
+
+  function statusBadge(status) {
+    if (status === "attended")  return '<span class="badge badge-attended">Attended</span>';
+    if (status === "exchanged") return '<span class="badge badge-exchanged">Exchanged</span>';
+    return '<span class="badge badge-not">Not Attended</span>';
+  }
+
+  /*************** 3. AUTH HANDLERS ***************/
+  document.getElementById("login-btn").addEventListener("click", async () => {
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-password").value;
+    if (!email || !password) { alert("Enter email and password"); return; }
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      alert("Login failed: " + err.message);
+    }
+  });
+
+  document.getElementById("signup-btn").addEventListener("click", async () => {
+    const name     = document.getElementById("signup-name").value.trim();
+    const email    = document.getElementById("signup-email").value.trim();
+    const password = document.getElementById("signup-password").value;
+    const phone    = document.getElementById("signup-phone").value.trim();
+    const batchId  = document.getElementById("signup-batch").value.trim();
+
+    if (!name || !email || !password || !batchId) {
+      alert("Fill name, email, password and batch.");
+      return;
+    }
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid  = cred.user.uid;
+      const userRef = doc(db, "users", uid);
+      await setDoc(userRef, {
+        name,
+        email,
+        phone,
+        batchId,
+        role: "student",
+        approved: false,
+        createdAt: serverTimestamp()
+      });
+      alert("Account created! Waiting for teacher approval.");
+    } catch (err) {
+      alert("Sign up failed: " + err.message);
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", async () => {
+    await signOut(auth);
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      currentUserAuth = null;
+      currentUserDoc  = null;
+      headerUser.textContent = "";
+      authSection.style.display = "block";
+      appSection.style.display  = "none";
+      return;
+    }
+    currentUserAuth = user;
+
+    const userRef = doc(db, "users", user.uid);
+    let snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      await setDoc(userRef, {
+        name: user.email || "Student",
+        email: user.email || "",
+        phone: "",
+        batchId: "FE_H",
+        role: "student",
+        approved: false,
+        createdAt: serverTimestamp()
+      });
+      snap = await getDoc(userRef);
+    }
+    currentUserDoc = { id: snap.id, ...snap.data() };
+
+    headerUser.textContent =
+      (currentUserDoc.name || "Student") + " (" + (currentUserDoc.role || "student") + ")";
+
+    authSection.style.display = "none";
+    appSection.style.display  = "block";
+
+    welcomeText.textContent =
+      `Hello, ${currentUserDoc.name} | Batch: ${currentUserDoc.batchId || "N/A"}`;
+
+    if (!currentUserDoc.approved) {
+      approvalWarning.textContent =
+        "Waiting for teacher approval. You cannot mark attendance until approved.";
+    } else {
+      approvalWarning.textContent = "";
+    }
+
+    adminTab.style.display = currentUserDoc.role === "admin" ? "inline-block" : "none";
+
+    await Promise.all([
+      loadTodayLectures(),
+      loadAttendance(),
+      loadTimetable(),
+      loadChat(),
+      loadPendingUsers()
+    ]);
+  });
+
+  /*************** 4. DATA LOADERS ***************/
+  async function loadTodayLectures() {
+    const container  = document.getElementById("today-lectures");
+    const noLectures = document.getElementById("no-lectures");
+    container.innerHTML = "";
+    noLectures.style.display = "none";
+
+    if (!currentUserDoc) return;
+    const dayCode = getTodayDayCode();
+
+    try {
+      const qRef = query(
+        collection(db, "timetable"),
+        where("batchId", "==", currentUserDoc.batchId),
+        where("day", "==", dayCode),
+        orderBy("period")
+      );
+      const snapshot = await getDocs(qRef);
+      if (snapshot.empty) {
+        noLectures.style.display = "block";
+        return;
+      }
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <b>Period ${data.period}: ${data.subjectName || data.subjectCode}</b><br/>
+          <span class="muted">${data.start} - ${data.end} | ${data.day}</span><br/>
+          <span class="muted">${data.notes || ""}</span><br/><br/>
+          <button class="btn btn-primary btn-small" data-status="attended">Attended</button>
+          <button class="btn btn-warning btn-small" data-status="exchanged">Lecture Exchanged</button>
+          <button class="btn btn-danger btn-small" data-status="not_attended">Not Attended</button>
+        `;
+        div.querySelector
